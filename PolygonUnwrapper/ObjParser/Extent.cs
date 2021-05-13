@@ -1,4 +1,4 @@
-﻿namespace ObjParser
+﻿namespace PolygonUnwrapper.ObjParser
 {
 	public class Extent
 	{

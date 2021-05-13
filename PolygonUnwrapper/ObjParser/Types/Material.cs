@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ObjParser.Types
+namespace PolygonUnwrapper.ObjParser.Types
 {
     public class Material : IType
     {

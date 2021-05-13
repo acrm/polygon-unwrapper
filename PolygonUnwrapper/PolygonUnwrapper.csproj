@@ -42,17 +42,20 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ObjParser\Extent.cs" />
+    <Compile Include="ObjParser\Mtl.cs" />
+    <Compile Include="ObjParser\Obj.cs" />
+    <Compile Include="ObjParser\Types\Color.cs" />
+    <Compile Include="ObjParser\Types\Face.cs" />
+    <Compile Include="ObjParser\Types\IType.cs" />
+    <Compile Include="ObjParser\Types\Material.cs" />
+    <Compile Include="ObjParser\Types\TextureVertex.cs" />
+    <Compile Include="ObjParser\Types\Vertex.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\ObjParser\ObjParser.csproj">
-      <Project>{04aa9b94-b460-4e73-baf0-0154494bfe82}</Project>
-      <Name>ObjParser</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

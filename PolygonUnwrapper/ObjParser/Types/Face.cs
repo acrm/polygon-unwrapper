@@ -6,16 +6,15 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ObjParser.Types
+namespace PolygonUnwrapper.ObjParser.Types
 {
     public class Face : IType
     {
         public const int MinimumDataLength = 4;
         public const string Prefix = "f";
-
-        public string UseMtl { get; set; }
         public int[] VertexIndexList { get; set; }
-        public int[] TextureVertexIndexList { get; set; }
+
+        public string GroupName { get; set; }
 
         public void LoadFromStringArray(string[] data)
         {
@@ -27,7 +26,6 @@ namespace ObjParser.Types
 
             int vcount = data.Count() - 1;
             VertexIndexList = new int[vcount];
-            TextureVertexIndexList = new int[vcount];
 
 			bool success;
 
@@ -43,9 +41,6 @@ namespace ObjParser.Types
                 if (parts.Count() > 1)
                 {
                     success = int.TryParse(parts[1], NumberStyles.Any, CultureInfo.InvariantCulture, out vindex);
-                    if (success) {
-                        TextureVertexIndexList[i] = vindex;
-                    }
                 }
             }
         }
@@ -55,18 +50,17 @@ namespace ObjParser.Types
         public override string ToString()
         {
             StringBuilder b = new StringBuilder();
+
+            if (GroupName != null)
+            {
+                b.AppendLine($"g {GroupName}");
+            }
+
             b.Append("f");
 
             for (int i = 0; i < VertexIndexList.Count(); i++)
             {
-                if (i < TextureVertexIndexList.Length)
-                {
-                    b.AppendFormat(" {0}/{1}", VertexIndexList[i], TextureVertexIndexList[i]);
-                }
-                else
-                {
-                    b.AppendFormat(" {0}", VertexIndexList[i]);
-                }
+                b.AppendFormat(" {0}", VertexIndexList[i]);
             }
 
             return b.ToString();

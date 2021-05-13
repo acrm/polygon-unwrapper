@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ObjParser.Types
+namespace PolygonUnwrapper.ObjParser.Types
 {
     interface IType
     {

@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ObjParser.Types
+namespace PolygonUnwrapper.ObjParser.Types
 {
     public class Vertex : IType
     {
@@ -20,7 +20,16 @@ namespace ObjParser.Types
 
         public int Index { get; set; }
 
-		public void LoadFromStringArray(string[] data)
+        public Vertex Add(Vertex v)
+        {
+            return new Vertex { X = this.X + v.X, Y = this.Y + v.Y, Z = this.Z + v.Z };
+        }
+        public Vertex Sub(Vertex v)
+        {
+            return new Vertex { X = this.X - v.X, Y = this.Y - v.Y, Z = this.Z - v.Z };
+        }
+
+        public void LoadFromStringArray(string[] data)
         {
             if (data.Length < MinimumDataLength)
                 throw new ArgumentException("Input array must be of minimum length " + MinimumDataLength, "data");

@@ -2,20 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using ObjParser.Types;
+using PolygonUnwrapper.ObjParser.Types;
 
-namespace ObjParser
+namespace PolygonUnwrapper.ObjParser
 {
 	public class Obj
 	{
+		public static string CurrentGroupName { get; set; }
+
 		public List<Vertex> VertexList;
 		public List<Face> FaceList;
-		public List<TextureVertex> TextureList;
 
 		public Extent Size { get; set; }
-
-		public string UseMtl { get; set; }
-		public string Mtl { get; set; }
 
         /// <summary>
         /// Constructor. Initializes VertexList, FaceList and TextureList.
@@ -24,7 +22,6 @@ namespace ObjParser
 	    {
             VertexList = new List<Vertex>();
             FaceList = new List<Face>();
-            TextureList = new List<TextureVertex>();
         }
 
         /// <summary>
@@ -64,25 +61,17 @@ namespace ObjParser
 
 		public void WriteObjFile(string path, string[] headerStrings)
 		{
+			if (File.Exists(path)) File.Delete(path);
+
 			using (var outStream = File.OpenWrite(path))
 			using (var writer = new StreamWriter(outStream))
 			{
 				// Write some header data
 			    WriteHeader(writer, headerStrings);
 
-				if (!string.IsNullOrEmpty(Mtl))
-				{
-					writer.WriteLine("mtllib " + Mtl);
-				}
-
 				VertexList.ForEach(v => writer.WriteLine(v));
-				TextureList.ForEach(tv => writer.WriteLine(tv));
-				string lastUseMtl = "";
-				foreach (Face face in FaceList) {
-					if (face.UseMtl != null && !face.UseMtl.Equals(lastUseMtl)) {
-						writer.WriteLine("usemtl " + face.UseMtl);
-						lastUseMtl = face.UseMtl;
-					}
+				foreach (Face face in FaceList)
+				{
 					writer.WriteLine(face);
 				}
 			}
@@ -135,23 +124,25 @@ namespace ObjParser
 			};		
 		}
 
+		static int faceCounter = 0;
 		/// <summary>
 		/// Parses and loads a line from an OBJ file.
 		/// Currently only supports V, VT, F and MTLLIB prefixes
 		/// </summary>		
 		private void processLine(string line)
 		{
+			if (faceCounter > 100) return;
+
 			string[] parts = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
 			if (parts.Length > 0)
 			{
 				switch (parts[0])
 				{
-					case "usemtl":
-						UseMtl = parts[1];
-						break;
-					case "mtllib":
-						Mtl = parts[1];
+					case "g":
+						CurrentGroupName = string.Join(" ", parts.Skip(1));
+						if (string.IsNullOrWhiteSpace(CurrentGroupName))
+							CurrentGroupName = null;
 						break;
 					case "v":
 						Vertex v = new Vertex();
@@ -161,15 +152,15 @@ namespace ObjParser
 						break;
 					case "f":
 						Face f = new Face();
+						if (CurrentGroupName != null)
+							f.GroupName = CurrentGroupName;
 						f.LoadFromStringArray(parts);
-						f.UseMtl = UseMtl;
 						FaceList.Add(f);
+						faceCounter++;
 						break;
 					case "vt":
 						TextureVertex vt = new TextureVertex();
 						vt.LoadFromStringArray(parts);
-						TextureList.Add(vt);
-						vt.Index = TextureList.Count();
 						break;
 
 				}
