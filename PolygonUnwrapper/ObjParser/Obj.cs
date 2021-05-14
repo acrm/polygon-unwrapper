@@ -124,15 +124,12 @@ namespace PolygonUnwrapper.ObjParser
 			};		
 		}
 
-		static int faceCounter = 0;
 		/// <summary>
 		/// Parses and loads a line from an OBJ file.
 		/// Currently only supports V, VT, F and MTLLIB prefixes
 		/// </summary>		
 		private void processLine(string line)
 		{
-			if (faceCounter > 100) return;
-
 			string[] parts = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
 			if (parts.Length > 0)
@@ -156,7 +153,6 @@ namespace PolygonUnwrapper.ObjParser
 							f.GroupName = CurrentGroupName;
 						f.LoadFromStringArray(parts);
 						FaceList.Add(f);
-						faceCounter++;
 						break;
 					case "vt":
 						TextureVertex vt = new TextureVertex();

@@ -51,6 +51,7 @@
     <Compile Include="ObjParser\Types\Material.cs" />
     <Compile Include="ObjParser\Types\TextureVertex.cs" />
     <Compile Include="ObjParser\Types\Vertex.cs" />
+    <Compile Include="PolygonTool\Polygon.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
