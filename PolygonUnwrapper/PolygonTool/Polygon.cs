@@ -23,6 +23,8 @@ namespace PolygonUnwrapper.PolygonTool
             Z = z;
         }
 
+        public override string ToString() => $"{X.ToString("F3")} {Y.ToString("F3")} {Z.ToString("F3")}";
+
         public Vec3 Add(Vec3 other) => new Vec3(X + other.X, Y + other.Y, Z + other.Z);
         public Vec3 Sub(Vec3 other) => new Vec3(X - other.X, Y - other.Y, Z - other.Z);
         public Vec3 Mul(double scalar) => new Vec3(X*scalar, Y*scalar, Z*scalar);
@@ -103,9 +105,10 @@ namespace PolygonUnwrapper.PolygonTool
                 Apply(v => v.Rotate(axis1, angle1));
             }
 
+            firstVector = Vertices[1].Sub(Vertices[0]);
             var angle2 = firstVector.Angle(targetFirstVector);
             var sign = Math.Sign(firstVector.Cross(targetFirstVector).Dot(targetNormal));
-            Apply(v => v.Rotate(targetNormal, -sign * angle2));
+            Apply(v => v.Rotate(targetNormal, sign * angle2));
 
             return this;
         }
@@ -171,23 +174,47 @@ namespace PolygonUnwrapper.PolygonTool
             };
         }
 
-        public PolygonalModel SplitToGrid()
+        public PolygonalModel SplitToGrid(int pageWidth, int pageHeight)
         {
-            var side = Math.Ceiling(Math.Sqrt(Polygons.Count)) + 1;
+            var maxHeight = 0.0;
+            var pos = new Vec3(0, 0, 0);
+            var pageTop = pos.Y;
+            var pageMargin = pageHeight / 10;
 
-            var row = 0;
-            var col = 0;
             for (var i = 0; i < Polygons.Count; i++)
             {
-                var pos = new Vec3(col * 10, row * 10, 0);
                 var polygon = Polygons[i];
-                polygon.Translate(new Vec3().Sub(polygon.Vertices[0]).Add(pos));
-                col++;
-                if (col >= side)
+                var top = polygon.Vertices.Max(v => v.Y);
+                var bottom = polygon.Vertices.Min(v => v.Y);
+                var left = polygon.Vertices.Min(v => v.X);
+                var right = polygon.Vertices.Max(v => v.X);
+
+                var shiftToOrigin = new Vec3(-left, -top, -polygon.Vertices[0].Z);
+                var width = right - left;
+                var height = top - bottom;
+
+                if (width > pageWidth)
+                    throw new Exception($"polygon width ({width}) greater than page width ({pageWidth})");
+
+                if (pos.X + width > pageWidth)
                 {
-                    row++;
-                    col = 0;
+                    // next row
+                    pos = new Vec3(0, pos.Y - maxHeight, 0);
+                    
+                    if (Math.Abs(pos.Y - height - pageTop) > pageHeight)
+                    {
+                        // next page
+                        pageTop = pos.Y - pageMargin;
+                        pos.Y = pageTop;
+                    }
+                    i--;
+                    maxHeight = 0;
+                    continue;
                 }
+
+                polygon.Translate(shiftToOrigin.Add(pos));
+                pos = pos.Add(new Vec3(width, 0, 0));
+                maxHeight = Math.Max(maxHeight, height);
             }
             return this;
         }
