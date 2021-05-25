@@ -14,6 +14,13 @@ namespace PolygonUnwrapper.PolygonTool
         public double Y;
         public double Z;
 
+        public static readonly Vec3 Up = new Vec3(0, 1, 0);
+        public static readonly Vec3 Down = new Vec3(0, -1, 0);
+        public static readonly Vec3 Right = new Vec3(1, 0, 0);
+        public static readonly Vec3 Left = new Vec3(-1, 0, 0);
+        public static readonly Vec3 Front = new Vec3(0, 0, 1);
+        public static readonly Vec3 Back = new Vec3(0, 0, -1);
+
         public Vec3() { }
 
         public Vec3(double x, double y, double z)
@@ -65,17 +72,70 @@ namespace PolygonUnwrapper.PolygonTool
         }
     }
 
+    public class Boundaries
+    {
+        public double Top { get; set; }
+        public double Bottom { get; set; }
+        public double Left { get; set; }
+        public double Right { get; set; }
+        public double Width => Right - Left;
+        public double Height => Top - Bottom;
+    }
+
     public class Polygon
     {
         public string Name;
-        public List<Vec3> Vertices = new List<Vec3>();
+        private List<Vec3> _vertices = new List<Vec3>();
+
+        public IReadOnlyList<Vec3> Vertices => _vertices;
+
+        public Boundaries Boundaries { get; private set; } = new Boundaries();
+        public Vec3 MaxEdge { get; private set; } = new Vec3();
+
+        public Polygon AddVertice(Vec3 v)
+        {
+            _vertices.Add(v);
+            CalcMetrics();
+
+            return this;
+        }
+
+        public Polygon AddVertices(IEnumerable<Vec3> vertices)
+        {
+            _vertices.AddRange(vertices);
+            CalcMetrics();
+
+            return this;
+        }
+
+        private Polygon CalcMetrics()
+        {
+            Boundaries.Top = _vertices.Max(v => v.Y);
+            Boundaries.Bottom = _vertices.Min(v => v.Y);
+            Boundaries.Left = _vertices.Min(v => v.X);
+            Boundaries.Right = _vertices.Max(v => v.X);
+            
+            for (var i = 0; i < _vertices.Count - 1; i++)
+            {
+                var edge = _vertices[i + 1].Sub(_vertices[i]);
+                if (edge.Length() > MaxEdge.Length())
+                {
+                    MaxEdge = edge;
+                }
+            }
+
+            return this;
+        }
 
         public Polygon Apply(Func<Vec3, Vec3> t)
         {
-            for (var i = 0; i < Vertices.Count; i++)
+            for (var i = 0; i < _vertices.Count; i++)
             {
-                Vertices[i] = t(Vertices[i]);
+                _vertices[i] = t(_vertices[i]);
             }
+
+            CalcMetrics();
+
             return this;
         }
 
@@ -86,13 +146,14 @@ namespace PolygonUnwrapper.PolygonTool
             => new Polygon
             {
                 Name = Name,
-                Vertices = Vertices.Select(v => new Vec3(v.X, v.Y, v.Z)).ToList()
-            };
+                _vertices = Vertices.Select(v => new Vec3(v.X, v.Y, v.Z)).ToList()
+            }
+            .CalcMetrics();
 
         public Polygon Align()
         {
-            var targetNormal = new Vec3(0, 0, 1);
-            var targetFirstVector = new Vec3(0, -1, 0);
+            var targetNormal = Vec3.Front;
+            var targetFirstVector = Vec3.Down;
 
             var firstVector = Vertices[1].Sub(Vertices[0]);
             var secondVector = Vertices[2].Sub(Vertices[0]);
@@ -116,26 +177,74 @@ namespace PolygonUnwrapper.PolygonTool
 
     public class PolygonalModel
     {
-        public List<Polygon> Polygons = new List<Polygon>();
+        private List<Polygon> _polygons = new List<Polygon>();
+        public IReadOnlyList<Polygon> Polygons => _polygons;
 
-        public void LoadFromObj(Obj obj, int start, int finish)
+        public Boundaries Boundaries { get; private set; } = new Boundaries();
+
+        private double MaxPolygonWidth = 0;
+        private double MaxPolygonHeight = 0;
+
+        private PolygonalModel CalcMetrics()
         {
-            if (start == 0) start = 1;
-            if (finish == 0) finish = obj.FaceList.Count;
-            for(var i = start-1; i < finish; i++)
+            Boundaries.Top = _polygons.Max(p => p.Boundaries.Top);
+            Boundaries.Bottom = _polygons.Max(p => p.Boundaries.Bottom);
+            Boundaries.Left = _polygons.Max(p => p.Boundaries.Left);
+            Boundaries.Right = _polygons.Max(p => p.Boundaries.Right);
+
+            foreach (var polygon in _polygons)
+            {
+                MaxPolygonWidth = Math.Max(MaxPolygonWidth, polygon.Boundaries.Width);
+                MaxPolygonHeight = Math.Max(MaxPolygonHeight, polygon.Boundaries.Height);
+            }
+
+            return this;
+        }
+
+        public PolygonalModel LoadFromObj(Obj obj)
+        {
+            for (var i =0; i < obj.FaceList.Count; i++)
             {
                 var face = obj.FaceList[i];
                 var polygon = new Polygon
                 {
                     Name = face.GroupName
                 };
+                var vertices = new List<Vec3>(face.VertexIndexList.Length);
                 foreach (var vIndex in face.VertexIndexList)
                 {
                     var v = obj.VertexList[vIndex - 1];
-                    polygon.Vertices.Add(new Vec3(v.X, v.Y, v.Z));
+                    vertices.Add(new Vec3(v.X, v.Y, v.Z));
                 }
-                Polygons.Add(polygon);
+                polygon.AddVertices(vertices);
+                _polygons.Add(polygon);
             }
+
+            CalcMetrics();
+
+            return this;
+        }
+
+        public PolygonalModel Limit(int start, int finish)
+        {
+            if (start == 0) start = 1;
+            if (finish == 0) finish = _polygons.Count;
+
+            _polygons = _polygons
+                .Skip(start - 1)
+                .Take(finish - start + 1)
+                .ToList();
+
+            CalcMetrics();
+
+            return this;
+        }
+
+        public PolygonalModel Sort()
+        {
+            _polygons = _polygons.OrderByDescending(p => p.MaxEdge.Length()).ToList();
+
+            return this;
         }
 
         public Obj LoadToObj()
@@ -157,64 +266,69 @@ namespace PolygonUnwrapper.PolygonTool
             return obj;
         }
 
-        public void RenamePolygons()
+        public PolygonalModel RenamePolygons()
         {
             var number = 1;
             foreach (var polygon in Polygons)
             {
                 polygon.Name = $"{number++}";
             }
+
+            return this;
         }
 
         public PolygonalModel Clone()
         {
             return new PolygonalModel
             {
-                Polygons = Polygons.Select(p => p.Clone()).ToList()
-            };
+                _polygons = Polygons.Select(p => p.Clone()).ToList()
+            }
+            .CalcMetrics();
         }
 
-        public PolygonalModel SplitToGrid(int pageWidth, int pageHeight)
+        public PolygonalModel SplitToGrid(int pageWidth, int pageHeight, int spacing)
         {
             var maxHeight = 0.0;
-            var pos = new Vec3(0, 0, 0);
-            var pageTop = pos.Y;
-            var pageMargin = pageHeight / 10;
+            var pageTop = 0.0;
+            var pos = new Vec3(spacing, -spacing, 0);
+            var pageMargin = spacing * 10;
 
-            for (var i = 0; i < Polygons.Count; i++)
+            if (MaxPolygonWidth > pageWidth)
+                throw new Exception($"Polygon max width ({MaxPolygonWidth}) greater than page width ({pageWidth}).");
+            if (MaxPolygonHeight > pageHeight)
+                throw new Exception($"Polygon max height ({MaxPolygonWidth}) greater than page height ({pageWidth}).");
+
+            var polygonsStack = new Stack<Polygon>(_polygons.Reverse<Polygon>());
+
+            while (polygonsStack.Count > 0)
             {
-                var polygon = Polygons[i];
-                var top = polygon.Vertices.Max(v => v.Y);
-                var bottom = polygon.Vertices.Min(v => v.Y);
-                var left = polygon.Vertices.Min(v => v.X);
-                var right = polygon.Vertices.Max(v => v.X);
+                var firstPolygon = polygonsStack.Pop();
 
-                var shiftToOrigin = new Vec3(-left, -top, -polygon.Vertices[0].Z);
-                var width = right - left;
-                var height = top - bottom;
+                var shiftToOrigin = new Vec3(-firstPolygon.Boundaries.Left, -firstPolygon.Boundaries.Top, -firstPolygon.Vertices[0].Z);
 
-                if (width > pageWidth)
-                    throw new Exception($"polygon width ({width}) greater than page width ({pageWidth})");
-
-                if (pos.X + width > pageWidth)
+                if (pageTop - pos.Y + firstPolygon.Boundaries.Height + spacing > pageHeight)
                 {
-                    // next row
-                    pos = new Vec3(0, pos.Y - maxHeight, 0);
-                    
-                    if (Math.Abs(pos.Y - height - pageTop) > pageHeight)
-                    {
-                        // next page
-                        pageTop = pos.Y - pageMargin;
-                        pos.Y = pageTop;
-                    }
-                    i--;
+                    // next page
+                    pageTop = pageTop - pageHeight - pageMargin - spacing;
+                    pos = new Vec3(spacing, pageTop, 0);
+
+                    polygonsStack.Push(firstPolygon);
                     maxHeight = 0;
                     continue;
                 }
 
-                polygon.Translate(shiftToOrigin.Add(pos));
-                pos = pos.Add(new Vec3(width, 0, 0));
-                maxHeight = Math.Max(maxHeight, height);
+                if (pos.X + firstPolygon.Boundaries.Width + spacing > pageWidth)
+                {
+                    // next row
+                    pos = new Vec3(spacing, pos.Y - maxHeight - spacing, 0);
+                    polygonsStack.Push(firstPolygon);
+                    maxHeight = 0;
+                    continue;
+                }
+
+                firstPolygon.Translate(shiftToOrigin.Add(pos));
+                pos = pos.Add(new Vec3(firstPolygon.Boundaries.Width + spacing, 0, 0));
+                maxHeight = Math.Max(maxHeight, firstPolygon.Boundaries.Height);
             }
             return this;
         }
@@ -223,8 +337,11 @@ namespace PolygonUnwrapper.PolygonTool
         {
             for (var i = 0; i < Polygons.Count; i++)
             {
-                Polygons[i] = t(Polygons[i]);
+                _polygons[i] = t(_polygons[i]);
             }
+
+            CalcMetrics();
+
             return this;
         }
 
