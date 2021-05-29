@@ -105,18 +105,44 @@ namespace PolygonUnwrapper
                     .LoadFromObj(obj)
                     .Sort()
                     .Limit(parameters.Start, parameters.Finish)
+                    .ReduceToTriangles()
                     .RenamePolygons();
+
+                var infoBuilder = new StringBuilder();
 
                 var grid = model
                     .Clone()
                     .Align()
-                    .SplitToGrid(parameters.Width, parameters.Height, parameters.Spacing);
+                    .SpreadToGrid(parameters.Width, parameters.Height, parameters.Spacing)
+                    .Get(m =>
+                    {
+                        infoBuilder.AppendLine(
+                            $"Max polygon: {m.Info.MaxPolygonWidth.ToString("F3")}x{m.Info.MaxPolygonHeight.ToString("F3")};\t"
+                            + $"Perimeter: {m.Info.PerimeterSum.ToString("F3")};\t"
+                            + $"Area: {m.Info.AreaSum.ToString("F3")};\t"
+                            //+ $"Normal error: {(m.Info.NormalAngleErrorSum / Math.PI * 180).ToString("F3")};\t"
+                            //+ $"Depth: {m.Boundaries.MinDepth.ToString("F3")}-{m.Boundaries.MaxDepth.ToString("F3")};"
+                        );
+                        foreach (var polygon in m.Polygons)
+                        {
+                            infoBuilder.AppendLine(
+                                $"Name: {polygon.Name};\t"
+                                + $"Max edge: {polygon.MaxEdge.Length().ToString("F3")};\t"
+                                + $"Perimeter: {polygon.Perimeter.ToString("F3")};\t"
+                                + $"Area: {polygon.Area.ToString("F3")};\t"
+                                //+ $"Normal error: {(polygon.NormalAngleError / Math.PI * 180).ToString("F3")};\t"
+                                //+ $"Vertices count: {polygon.Vertices.Count};\t"
+                            );
+                        }
+                    });
 
                 var modelObj = model.LoadToObj();
                 modelObj.WriteObjFile("model.obj", new string[0]);
 
                 var gridObj = grid.LoadToObj();
                 gridObj.WriteObjFile("grid.obj", new string[0]);
+
+                File.WriteAllText("info.txt", infoBuilder.ToString());
             }
             catch (Exception ex)
             {

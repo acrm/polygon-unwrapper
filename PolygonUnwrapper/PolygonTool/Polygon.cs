@@ -74,23 +74,115 @@ namespace PolygonUnwrapper.PolygonTool
 
     public class Boundaries
     {
-        public double Top { get; set; }
-        public double Bottom { get; set; }
-        public double Left { get; set; }
-        public double Right { get; set; }
+        public double Top { get; private set; }
+        public double Bottom { get; private set; }
+        public double Left { get; private set; }
+        public double Right { get; private set; }
+        public double MaxDepth { get; private set; }
+        public double MinDepth { get; private set; }
         public double Width => Right - Left;
         public double Height => Top - Bottom;
+        public double Depth => MaxDepth - MinDepth;
+
+        public Boundaries CalcMetrics(IReadOnlyList<Vec3> vertices)
+        {
+            Top = vertices.Max(v => v.Y);
+            Bottom = vertices.Min(v => v.Y);
+            Left = vertices.Min(v => v.X);
+            Right = vertices.Max(v => v.X);
+            MinDepth = vertices.Min(v => v.Z);
+            MaxDepth = vertices.Max(v => v.Z);
+
+            return this;
+        }
+
+        public Boundaries CalcMetrics(IReadOnlyList<Polygon> polygons)
+        {
+            Top = polygons.Max(p => p.Boundaries.Top);
+            Bottom = polygons.Max(p => p.Boundaries.Bottom);
+            Left = polygons.Max(p => p.Boundaries.Left);
+            Right = polygons.Max(p => p.Boundaries.Right);
+            MinDepth = polygons.Min(p => p.Boundaries.MinDepth);
+            MaxDepth = polygons.Max(p => p.Boundaries.MaxDepth);
+
+            return this;
+        }
     }
 
     public class Polygon
     {
         public string Name;
-        private List<Vec3> _vertices = new List<Vec3>();
+        private readonly List<Vec3> _vertices = new List<Vec3>();
 
         public IReadOnlyList<Vec3> Vertices => _vertices;
 
         public Boundaries Boundaries { get; private set; } = new Boundaries();
         public Vec3 MaxEdge { get; private set; } = new Vec3();
+        public double NormalAngleError { get; private set; }
+        public double Area { get; private set; }
+        public double Perimeter { get; private set; }
+
+        private Polygon CalcMetrics()
+        {
+            Boundaries.CalcMetrics(_vertices);
+
+            var area = 0.0;
+            var perimeter = 0.0;
+            var maxEdge = new Vec3();
+            var maxLength = 0.0;
+            var normalAngleError = 0.0;
+            for (var i = 0; i < _vertices.Count; i++)
+            {
+                var nextIndex = i == _vertices.Count - 1 ? 0 : i + 1;
+                var vertex = _vertices[i];
+                var nextVertex = _vertices[nextIndex];
+                var edge = nextVertex.Sub(vertex);
+                var length = edge.Length();
+                if (length > maxLength)
+                {
+                    maxEdge = edge;
+                    maxLength = length;
+                }
+                perimeter += length;
+
+                var vec1 = vertex.Sub(_vertices[0]);
+                var vec2 = nextVertex.Sub(_vertices[0]);
+                var crossProduct = vec1.Cross(vec2);
+                area += 0.5 * crossProduct.Length();
+
+                var axis = crossProduct.Cross(Vec3.Front);
+                var l = axis.Length();
+                if (l > 0.001)
+                {
+                    normalAngleError += Math.Abs(crossProduct.Angle(Vec3.Front));
+                }
+            }
+            MaxEdge = maxEdge;
+            Area = area;
+            Perimeter = perimeter;
+            NormalAngleError = normalAngleError;
+
+            return this;
+        }
+
+        public IList<Polygon> GetSubTriangles()
+        {
+            if (_vertices.Count <= 3) return new List<Polygon>(1) { this };
+
+            var subTriangles = new List<Polygon>(_vertices.Count - 2);
+            for (var i = 1; i < _vertices.Count - 1; i++)
+            {
+                subTriangles.Add(
+                    new Polygon()
+                    .AddVertices(new Vec3[]
+                    {
+                        _vertices[0],
+                        _vertices[i],
+                        _vertices[i + 1]
+                    }));
+            }
+            return subTriangles;
+        }
 
         public Polygon AddVertice(Vec3 v)
         {
@@ -104,25 +196,6 @@ namespace PolygonUnwrapper.PolygonTool
         {
             _vertices.AddRange(vertices);
             CalcMetrics();
-
-            return this;
-        }
-
-        private Polygon CalcMetrics()
-        {
-            Boundaries.Top = _vertices.Max(v => v.Y);
-            Boundaries.Bottom = _vertices.Min(v => v.Y);
-            Boundaries.Left = _vertices.Min(v => v.X);
-            Boundaries.Right = _vertices.Max(v => v.X);
-            
-            for (var i = 0; i < _vertices.Count - 1; i++)
-            {
-                var edge = _vertices[i + 1].Sub(_vertices[i]);
-                if (edge.Length() > MaxEdge.Length())
-                {
-                    MaxEdge = edge;
-                }
-            }
 
             return this;
         }
@@ -145,10 +218,9 @@ namespace PolygonUnwrapper.PolygonTool
         public Polygon Clone()
             => new Polygon
             {
-                Name = Name,
-                _vertices = Vertices.Select(v => new Vec3(v.X, v.Y, v.Z)).ToList()
+                Name = Name
             }
-            .CalcMetrics();
+            .AddVertices(Vertices.Select(v => new Vec3(v.X, v.Y, v.Z)));
 
         public Polygon Align()
         {
@@ -175,6 +247,15 @@ namespace PolygonUnwrapper.PolygonTool
         }
     }
 
+    public class PolygonalModelInfo
+    {
+        public double MaxPolygonWidth;
+        public double MaxPolygonHeight;
+        public double NormalAngleErrorSum;
+        public double AreaSum;
+        public double PerimeterSum;
+    }
+
     public class PolygonalModel
     {
         private List<Polygon> _polygons = new List<Polygon>();
@@ -182,28 +263,38 @@ namespace PolygonUnwrapper.PolygonTool
 
         public Boundaries Boundaries { get; private set; } = new Boundaries();
 
-        private double MaxPolygonWidth = 0;
-        private double MaxPolygonHeight = 0;
+        public PolygonalModelInfo Info { get; private set; } = new PolygonalModelInfo();
 
         private PolygonalModel CalcMetrics()
         {
-            Boundaries.Top = _polygons.Max(p => p.Boundaries.Top);
-            Boundaries.Bottom = _polygons.Max(p => p.Boundaries.Bottom);
-            Boundaries.Left = _polygons.Max(p => p.Boundaries.Left);
-            Boundaries.Right = _polygons.Max(p => p.Boundaries.Right);
+            Boundaries.CalcMetrics(_polygons);
 
+            Info.MaxPolygonWidth = 0;
+            Info.MaxPolygonHeight = 0;
+            Info.NormalAngleErrorSum = 0;
+            Info.AreaSum = 0;
+            Info.PerimeterSum = 0;
             foreach (var polygon in _polygons)
             {
-                MaxPolygonWidth = Math.Max(MaxPolygonWidth, polygon.Boundaries.Width);
-                MaxPolygonHeight = Math.Max(MaxPolygonHeight, polygon.Boundaries.Height);
+                Info.MaxPolygonWidth = Math.Max(Info.MaxPolygonWidth, polygon.Boundaries.Width);
+                Info.MaxPolygonHeight = Math.Max(Info.MaxPolygonHeight, polygon.Boundaries.Height);
+                Info.NormalAngleErrorSum += polygon.NormalAngleError;
+                Info.AreaSum += polygon.Area;
+                Info.PerimeterSum += polygon.Perimeter;
             }
 
             return this;
         }
 
+        public PolygonalModel Get(Action<PolygonalModel> modelAccessor)
+        {
+            modelAccessor(this);
+            return this;
+        }
+
         public PolygonalModel LoadFromObj(Obj obj)
         {
-            for (var i =0; i < obj.FaceList.Count; i++)
+            for (var i = 0; i < obj.FaceList.Count; i++)
             {
                 var face = obj.FaceList[i];
                 var polygon = new Polygon
@@ -286,17 +377,32 @@ namespace PolygonUnwrapper.PolygonTool
             .CalcMetrics();
         }
 
-        public PolygonalModel SplitToGrid(int pageWidth, int pageHeight, int spacing)
+        public PolygonalModel ReduceToTriangles()
+        {
+            var newPolygons = new List<Polygon>((int)(_polygons.Count * 1.1)); // 10% reserve for new polygons
+            foreach (var polygon in _polygons)
+            {
+                var subTriangles = polygon.GetSubTriangles();
+                newPolygons.AddRange(subTriangles);
+            }
+
+            _polygons = newPolygons;
+            CalcMetrics();
+
+            return this;
+        }
+
+        public PolygonalModel SpreadToGrid(int pageWidth, int pageHeight, int spacing)
         {
             var maxHeight = 0.0;
             var pageTop = 0.0;
             var pos = new Vec3(spacing, -spacing, 0);
             var pageMargin = spacing * 10;
 
-            if (MaxPolygonWidth > pageWidth)
-                throw new Exception($"Polygon max width ({MaxPolygonWidth}) greater than page width ({pageWidth}).");
-            if (MaxPolygonHeight > pageHeight)
-                throw new Exception($"Polygon max height ({MaxPolygonWidth}) greater than page height ({pageWidth}).");
+            if (Info.MaxPolygonWidth > pageWidth)
+                throw new Exception($"Polygon max width ({Info.MaxPolygonWidth}) greater than page width ({pageWidth}).");
+            if (Info.MaxPolygonHeight > pageHeight)
+                throw new Exception($"Polygon max height ({Info.MaxPolygonWidth}) greater than page height ({pageWidth}).");
 
             var polygonsStack = new Stack<Polygon>(_polygons.Reverse<Polygon>());
 
@@ -330,6 +436,9 @@ namespace PolygonUnwrapper.PolygonTool
                 pos = pos.Add(new Vec3(firstPolygon.Boundaries.Width + spacing, 0, 0));
                 maxHeight = Math.Max(maxHeight, firstPolygon.Boundaries.Height);
             }
+
+            CalcMetrics(); // update depth
+
             return this;
         }
 
