@@ -117,19 +117,21 @@ namespace PolygonUnwrapper
                     .Get(m =>
                     {
                         infoBuilder.AppendLine(
-                            $"Max polygon: {m.Info.MaxPolygonWidth.ToString("F3")}x{m.Info.MaxPolygonHeight.ToString("F3")};\t"
-                            + $"Perimeter: {m.Info.PerimeterSum.ToString("F3")};\t"
-                            + $"Area: {m.Info.AreaSum.ToString("F3")};\t"
-                            //+ $"Normal error: {(m.Info.NormalAngleErrorSum / Math.PI * 180).ToString("F3")};\t"
-                            //+ $"Depth: {m.Boundaries.MinDepth.ToString("F3")}-{m.Boundaries.MaxDepth.ToString("F3")};"
+                            $"Max polygon: {m.Info.MaxPolygonWidth.ToString("N1")}x{m.Info.MaxPolygonHeight.ToString("N1")};\t"
+                            + $"Polygons total perimeter: {m.Info.PerimeterSum.ToString("N1")};\t"
+                            + $"Polygons total area: {m.Info.AreaSum.ToString("N1")};\t"
+                            + $"Pages total area: {m.Info.PagesAreaSum.ToString("N1")};\t"
+                            + $"Density: {(m.Info.Density).ToString("P1")};\t"
+                        //+ $"Normal error: {(m.Info.NormalAngleErrorSum / Math.PI * 180).ToString("F3")};\t"
+                        //+ $"Depth: {m.Boundaries.MinDepth.ToString("F3")}-{m.Boundaries.MaxDepth.ToString("F3")};"
                         );
                         foreach (var polygon in m.Polygons)
                         {
                             infoBuilder.AppendLine(
                                 $"Name: {polygon.Name};\t"
-                                + $"Max edge: {polygon.MaxEdge.Length().ToString("F3")};\t"
-                                + $"Perimeter: {polygon.Perimeter.ToString("F3")};\t"
-                                + $"Area: {polygon.Area.ToString("F3")};\t"
+                                + $"Max edge: {polygon.MaxEdge.Length().ToString("N1")};\t"
+                                + $"Perimeter: {polygon.Perimeter.ToString("N1")};\t"
+                                + $"Area: {polygon.Area.ToString("N1")};\t"
                                 //+ $"Normal error: {(polygon.NormalAngleError / Math.PI * 180).ToString("F3")};\t"
                                 //+ $"Vertices count: {polygon.Vertices.Count};\t"
                             );

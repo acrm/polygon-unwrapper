@@ -8,11 +8,13 @@ namespace PolygonUnwrapper.PolygonTool
 {
     public class PolygonalModelInfo
     {
-        public double MaxPolygonWidth;
-        public double MaxPolygonHeight;
-        public double NormalAngleErrorSum;
-        public double AreaSum;
-        public double PerimeterSum;
+        public double MaxPolygonWidth { get; set; }
+        public double MaxPolygonHeight { get; set; }
+        public double NormalAngleErrorSum { get; set; }
+        public double AreaSum { get; set; }
+        public double PerimeterSum { get; set; }
+        public double PagesAreaSum { get; set; }
+        public double Density { get; set; }
     }
     public class PolygonalModel
     {
@@ -152,6 +154,10 @@ namespace PolygonUnwrapper.PolygonTool
 
         public PolygonalModel SpreadToGrid(int pageWidth, int pageHeight, int spacing)
         {
+            var pagesArea = 0.0;
+            var polygonsArea = 0.0;
+            var currentPageArea = 0.0;
+
             var maxHeight = 0.0;
             var pageTop = 0.0;
             var pos = new Vec3(spacing, -spacing, 0);
@@ -178,6 +184,8 @@ namespace PolygonUnwrapper.PolygonTool
 
                     polygonsStack.Push(firstPolygon);
                     maxHeight = 0;
+                    pagesArea += currentPageArea;
+                    currentPageArea = 0.0;
                     continue;
                 }
 
@@ -193,7 +201,12 @@ namespace PolygonUnwrapper.PolygonTool
                 firstPolygon.Translate(shiftToOrigin.Add(pos));
                 pos = pos.Add(new Vec3(firstPolygon.Boundaries.Width + spacing, 0, 0));
                 maxHeight = Math.Max(maxHeight, firstPolygon.Boundaries.Height);
+                polygonsArea += firstPolygon.Area;
+                currentPageArea = (firstPolygon.Boundaries.Right - spacing) * (pageTop - firstPolygon.Boundaries.Bottom - spacing);
             }
+            pagesArea += currentPageArea;
+            Info.PagesAreaSum = pagesArea;
+            Info.Density = polygonsArea / pagesArea;
 
             CalcMetrics(); // update depth
 
