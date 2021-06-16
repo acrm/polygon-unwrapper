@@ -15,6 +15,9 @@ namespace PolygonUnwrapper.PolygonTool
         public double PerimeterSum { get; set; }
         public double PagesAreaSum { get; set; }
         public double Density { get; set; }
+        public int PagesCount { get; set; }
+        public int MinPolygonsOnPage { get; set; }
+        public int MaxPolygonsOnPage { get; set; }
     }
     public class PolygonalModel
     {
@@ -91,9 +94,11 @@ namespace PolygonUnwrapper.PolygonTool
             return this;
         }
 
-        public PolygonalModel Sort()
+        public PolygonalModel Sort(bool asc)
         {
-            _polygons = _polygons.OrderByDescending(p => p.MaxEdge.Length()).ToList();
+            _polygons = asc
+                ? _polygons.OrderBy(p => p.MaxEdge.Length()).ToList()
+                : _polygons.OrderByDescending(p => p.MaxEdge.Length()).ToList();
 
             return this;
         }
@@ -152,7 +157,7 @@ namespace PolygonUnwrapper.PolygonTool
             return this;
         }
 
-        public PolygonalModel SpreadToGrid(int pageWidth, int pageHeight, int spacing)
+        public PolygonalModel SpreadToPages(int pageWidth, int pageHeight, int spacing)
         {
             var pagesArea = 0.0;
             var polygonsArea = 0.0;
@@ -170,6 +175,10 @@ namespace PolygonUnwrapper.PolygonTool
 
             var polygonsStack = new Stack<Polygon>(_polygons.Reverse<Polygon>());
 
+            var pageNumber = 1;
+            var polygonsInCurrentPage = 0;
+            Info.MaxPolygonsOnPage = 0;
+            Info.MinPolygonsOnPage = polygonsStack.Count;
             while (polygonsStack.Count > 0)
             {
                 var firstPolygon = polygonsStack.Pop();
@@ -186,6 +195,10 @@ namespace PolygonUnwrapper.PolygonTool
                     maxHeight = 0;
                     pagesArea += currentPageArea;
                     currentPageArea = 0.0;
+                    Info.MinPolygonsOnPage = Math.Min(Info.MinPolygonsOnPage, polygonsInCurrentPage);
+                    Info.MaxPolygonsOnPage = Math.Max(Info.MaxPolygonsOnPage, polygonsInCurrentPage);
+                    polygonsInCurrentPage = 0;
+                    pageNumber++;
                     continue;
                 }
 
@@ -199,6 +212,9 @@ namespace PolygonUnwrapper.PolygonTool
                 }
 
                 firstPolygon.Translate(shiftToOrigin.Add(pos));
+                firstPolygon.Page = pageNumber;
+                polygonsInCurrentPage++;
+
                 pos = pos.Add(new Vec3(firstPolygon.Boundaries.Width + spacing, 0, 0));
                 maxHeight = Math.Max(maxHeight, firstPolygon.Boundaries.Height);
                 polygonsArea += firstPolygon.Area;
@@ -207,6 +223,9 @@ namespace PolygonUnwrapper.PolygonTool
             pagesArea += currentPageArea;
             Info.PagesAreaSum = pagesArea;
             Info.Density = polygonsArea / pagesArea;
+            Info.PagesCount = pageNumber;
+            Info.MinPolygonsOnPage = Math.Min(Info.MinPolygonsOnPage, polygonsInCurrentPage);
+            Info.MaxPolygonsOnPage = Math.Max(Info.MaxPolygonsOnPage, polygonsInCurrentPage);
 
             CalcMetrics(); // update depth
 

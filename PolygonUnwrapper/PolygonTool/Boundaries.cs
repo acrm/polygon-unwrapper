@@ -15,6 +15,8 @@ namespace PolygonUnwrapper.PolygonTool
         public double Height => Top - Bottom;
         public double Depth => MaxDepth - MinDepth;
 
+        public Vec3 Middle => new Vec3(Left, Top, MinDepth).Add(new Vec3(Right, Bottom, MaxDepth)).Mul(0.5);
+
         public Boundaries CalcMetrics(IReadOnlyList<Vec3> vertices)
         {
             Top = vertices.Max(v => v.Y);

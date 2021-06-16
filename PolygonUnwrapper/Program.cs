@@ -1,4 +1,7 @@
-﻿using PolygonUnwrapper.ObjParser.Types;
+﻿using netDxf;
+using netDxf.Entities;
+using netDxf.Tables;
+using PolygonUnwrapper.ObjParser.Types;
 using PolygonUnwrapper.PolygonTool;
 using System;
 using System.Collections.Generic;
@@ -103,8 +106,8 @@ namespace PolygonUnwrapper
 
                 var model = new PolygonalModel()
                     .LoadFromObj(obj)
-                    .Sort()
                     .Limit(parameters.Start, parameters.Finish)
+                    .Sort(asc: true)
                     .ReduceToTriangles()
                     .RenamePolygons();
 
@@ -113,28 +116,37 @@ namespace PolygonUnwrapper
                 var grid = model
                     .Clone()
                     .Align()
-                    .SpreadToGrid(parameters.Width, parameters.Height, parameters.Spacing)
+                    .Sort(asc: false)
+                    .SpreadToPages(parameters.Width, parameters.Height, parameters.Spacing)
                     .Get(m =>
                     {
-                        infoBuilder.AppendLine(
-                            $"Max polygon: {m.Info.MaxPolygonWidth.ToString("N1")}x{m.Info.MaxPolygonHeight.ToString("N1")};\t"
-                            + $"Polygons total perimeter: {m.Info.PerimeterSum.ToString("N1")};\t"
-                            + $"Polygons total area: {m.Info.AreaSum.ToString("N1")};\t"
-                            + $"Pages total area: {m.Info.PagesAreaSum.ToString("N1")};\t"
-                            + $"Density: {(m.Info.Density).ToString("P1")};\t"
-                        //+ $"Normal error: {(m.Info.NormalAngleErrorSum / Math.PI * 180).ToString("F3")};\t"
-                        //+ $"Depth: {m.Boundaries.MinDepth.ToString("F3")}-{m.Boundaries.MaxDepth.ToString("F3")};"
-                        );
-                        foreach (var polygon in m.Polygons)
-                        {
-                            infoBuilder.AppendLine(
-                                $"Name: {polygon.Name};\t"
-                                + $"Max edge: {polygon.MaxEdge.Length().ToString("N1")};\t"
-                                + $"Perimeter: {polygon.Perimeter.ToString("N1")};\t"
-                                + $"Area: {polygon.Area.ToString("N1")};\t"
-                                //+ $"Normal error: {(polygon.NormalAngleError / Math.PI * 180).ToString("F3")};\t"
-                                //+ $"Vertices count: {polygon.Vertices.Count};\t"
+                        infoBuilder
+                            .AppendLine(
+                                $"Max polygon: {m.Info.MaxPolygonWidth:N1}x{m.Info.MaxPolygonHeight:N1};\t"
+                                + $"Polygons total perimeter: {m.Info.PerimeterSum:N1};\t"
+                                + $"Polygons total area: {m.Info.AreaSum:N1};\t"
+                            )
+                            .AppendLine(
+                                $"Pages count: {m.Info.PagesCount:D};\t"
+                                + $"Minimum polygons on page: {m.Info.MinPolygonsOnPage:D};\t"
+                                + $"Maximum polygons on page: {m.Info.MaxPolygonsOnPage:D};\t"
+                            )
+                            .AppendLine(
+                                $"Pages total area: {m.Info.PagesAreaSum:N1};\t"
+                                + $"Avarage density: {m.Info.Density:P1};\t"
                             );
+                        foreach (var polygonGroup in m.Polygons.GroupBy(p => p.Page))
+                        {
+                            infoBuilder.AppendLine($"Page #{polygonGroup.Key}");
+                            foreach (var polygon in polygonGroup)
+                            {
+                                infoBuilder.AppendLine(
+                                    $"Name: {polygon.Name};\t"
+                                    + $"Max edge: {polygon.MaxEdge.Length():N1};\t"
+                                    + $"Perimeter: {polygon.Perimeter:N1};\t"
+                                    + $"Area: {polygon.Area:N1};\t"
+                                );
+                            }
                         }
                     });
 
@@ -145,6 +157,90 @@ namespace PolygonUnwrapper
                 gridObj.WriteObjFile("grid.obj", new string[0]);
 
                 File.WriteAllText("info.txt", infoBuilder.ToString());
+
+                void OutputDxfFiles()
+                {
+                    Vector3 Vec3ToVector3(Vec3 v) => new Vector3(v.X, v.Y, v.Z);
+                    void CreateTextEnity(Polygon polygon, DxfDocument doc)
+                    {
+                        var orderedVertices = new Vec3[3];
+                        for (var i = 0; i < 3; i++)
+                        {
+                            var edge = polygon.Vertices[(i + 1) % 3].Sub(polygon.Vertices[i]);
+                            if (edge.Sub(polygon.MaxEdge).Length() <= double.Epsilon)
+                            {
+                                orderedVertices[0] = polygon.Vertices[i];
+                                orderedVertices[1] = polygon.Vertices[(i + 1) % 3];
+                                orderedVertices[2] = polygon.Vertices[(i + 2) % 3];
+                                break;
+                            }
+                        }
+
+                        Vec3 a = orderedVertices[0];
+                        Vec3 b = orderedVertices[1];
+                        Vec3 c = orderedVertices[2];
+
+                        const double k = 1;
+                        var n = polygon.Name.Length;
+
+                        var ab = b.Sub(a).Length();
+                        var bc = c.Sub(b).Length();
+                        var ca = a.Sub(c).Length();
+                        var cosAlpha = (ab * ab + ca * ca - bc * bc) / 2.0 / ab / ca;
+                        var sinAlpha = Math.Sqrt(1 - cosAlpha * cosAlpha);
+                        var beta = Math.Acos((b.X - a.X)/ab)*Math.Sign(b.Y - a.Y);
+                        var t = 1 / (1 + k * n * sinAlpha * ca / ab);
+                        var h = t * ca * sinAlpha;
+                        var w = (1 - t) * ab;
+                        double error = w/h - n * k;
+                        var d = c.Sub(a).Mul(t).Add(a);
+                        var pos = b.Sub(a).Mul(cosAlpha * d.Sub(a).Length() / ab).Add(a);
+
+                        var textSize = h*0.8;
+                        var text = new Text(
+                            polygon.Name,
+                            new Vector2(
+                                pos.X + (w * Math.Cos(beta) - h * Math.Sin(beta)) * 0.05,
+                                pos.Y + (w * Math.Sin(beta) + h * Math.Cos(beta)) * 0.05),
+                            textSize);
+                        text.Rotation = beta / Math.PI * 180;
+                        doc.AddEntity(text);
+
+                        //doc.AddEntity(new Polyline(new[]
+                        //{
+                        //    new Vector3(
+                        //        pos.X,
+                        //        pos.Y,
+                        //        0),
+                        //    new Vector3(
+                        //        pos.X + w * Math.Cos(beta) - 0 * Math.Sin(beta),
+                        //        pos.Y + w * Math.Sin(beta) + 0 * Math.Cos(beta),
+                        //        0),
+                        //    new Vector3(
+                        //        pos.X + w * Math.Cos(beta) - h * Math.Sin(beta),
+                        //        pos.Y + w * Math.Sin(beta) + h * Math.Cos(beta),
+                        //        0),
+                        //    new Vector3(
+                        //        pos.X + 0 * Math.Cos(beta) - h * Math.Sin(beta),
+                        //        pos.Y + 0 * Math.Sin(beta) + h * Math.Cos(beta),
+                        //        0),
+                        //}, true));
+                    }
+
+                    var dxf = new DxfDocument();
+                    var namesLayer = new Layer("Names");
+                    var polygonsLayer = new Layer("Polygons");
+
+                    foreach (var p in grid.Polygons)
+                    {
+                        var entity = new Polyline(p.Vertices.Select(Vec3ToVector3), true);
+                        entity.Layer = polygonsLayer;
+                        dxf.AddEntity(entity);
+                        CreateTextEnity(p, dxf);
+                    }
+                    dxf.Save("polygons+names.dxf");
+                }
+                OutputDxfFiles();
             }
             catch (Exception ex)
             {

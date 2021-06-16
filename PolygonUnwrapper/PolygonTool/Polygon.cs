@@ -9,6 +9,7 @@ namespace PolygonUnwrapper.PolygonTool
     public class Polygon
     {
         public string Name;
+        public int Page { get; set; }
         private readonly List<Vec3> _vertices = new List<Vec3>();
 
         public IReadOnlyList<Vec3> Vertices => _vertices;
