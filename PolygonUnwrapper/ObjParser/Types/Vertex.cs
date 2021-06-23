@@ -57,7 +57,10 @@ namespace PolygonUnwrapper.ObjParser.Types
 
         public override string ToString()
         {
-            return string.Format("v {0} {1} {2}", X, Y, Z);
+            return string.Format("v {0} {1} {2}",
+                X.ToString(CultureInfo.InvariantCulture),
+                Y.ToString(CultureInfo.InvariantCulture),
+                Z.ToString(CultureInfo.InvariantCulture));
         }
     }
 }
