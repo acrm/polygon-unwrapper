@@ -5,12 +5,12 @@ namespace PolygonUnwrapper.PolygonTool
 {
     public class Boundaries
     {
-        public double Top { get; private set; }
-        public double Bottom { get; private set; }
-        public double Left { get; private set; }
-        public double Right { get; private set; }
-        public double MaxDepth { get; private set; }
-        public double MinDepth { get; private set; }
+        public double Top { get; set; }
+        public double Bottom { get; set; }
+        public double Left { get; set; }
+        public double Right { get; set; }
+        public double MaxDepth { get; set; }
+        public double MinDepth { get; set; }
         public double Width => Right - Left;
         public double Height => Top - Bottom;
         public double Depth => MaxDepth - MinDepth;
@@ -29,7 +29,7 @@ namespace PolygonUnwrapper.PolygonTool
             return this;
         }
 
-        public Boundaries CalcMetrics(IReadOnlyList<Polygon> polygons)
+        public Boundaries CalcMetrics(IReadOnlyList<Polygon3D> polygons)
         {
             Top = polygons.Max(p => p.Boundaries.Top);
             Bottom = polygons.Max(p => p.Boundaries.Bottom);

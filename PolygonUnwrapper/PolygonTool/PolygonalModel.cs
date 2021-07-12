@@ -21,8 +21,8 @@ namespace PolygonUnwrapper.PolygonTool
     }
     public class PolygonalModel
     {
-        private List<Polygon> _polygons = new List<Polygon>();
-        public IReadOnlyList<Polygon> Polygons => _polygons;
+        private List<Polygon3D> _polygons = new List<Polygon3D>();
+        public IReadOnlyList<Polygon3D> Polygons => _polygons;
 
         public Boundaries Boundaries { get; private set; } = new Boundaries();
 
@@ -60,7 +60,7 @@ namespace PolygonUnwrapper.PolygonTool
             for (var i = 0; i < obj.FaceList.Count; i++)
             {
                 var face = obj.FaceList[i];
-                var polygon = new Polygon
+                var polygon = new Polygon3D
                 {
                     Name = face.GroupName
                 };
@@ -122,7 +122,7 @@ namespace PolygonUnwrapper.PolygonTool
             return obj;
         }
 
-        public PolygonalModel RenamePolygons()
+        public PolygonalModel RenumberPolygons()
         {
             var number = 1;
             foreach (var polygon in Polygons)
@@ -144,7 +144,7 @@ namespace PolygonUnwrapper.PolygonTool
 
         public PolygonalModel ReduceToTriangles()
         {
-            var newPolygons = new List<Polygon>((int)(_polygons.Count * 1.1)); // 10% reserve for new polygons
+            var newPolygons = new List<Polygon3D>((int)(_polygons.Count * 1.1)); // 10% reserve for new polygons
             foreach (var polygon in _polygons)
             {
                 var subTriangles = polygon.GetSubTriangles();
@@ -173,7 +173,7 @@ namespace PolygonUnwrapper.PolygonTool
             if (Info.MaxPolygonHeight > pageHeight)
                 throw new Exception($"Polygon max height ({Info.MaxPolygonWidth}) greater than page height ({pageWidth}).");
 
-            var polygonsStack = new Stack<Polygon>(_polygons.Reverse<Polygon>());
+            var polygonsStack = new Stack<Polygon3D>(_polygons.Reverse<Polygon3D>());
 
             var pageNumber = 1;
             var polygonsInCurrentPage = 0;
@@ -232,7 +232,7 @@ namespace PolygonUnwrapper.PolygonTool
             return this;
         }
 
-        public PolygonalModel Apply(Func<Polygon, Polygon> t)
+        public PolygonalModel Apply(Func<Polygon3D, Polygon3D> t)
         {
             for (var i = 0; i < Polygons.Count; i++)
             {

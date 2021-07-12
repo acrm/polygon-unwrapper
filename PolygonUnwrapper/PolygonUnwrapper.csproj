@@ -55,8 +55,12 @@
     <Compile Include="ObjParser\Types\TextureVertex.cs" />
     <Compile Include="ObjParser\Types\Vertex.cs" />
     <Compile Include="PolygonTool\Boundaries.cs" />
-    <Compile Include="PolygonTool\Polygon.cs" />
+    <Compile Include="PolygonTool\Triangle2D.cs" />
+    <Compile Include="PolygonTool\Polygon3D.cs" />
     <Compile Include="PolygonTool\PolygonalModel.cs" />
+    <Compile Include="PolygonTool\PolygonsPage.cs" />
+    <Compile Include="PolygonTool\RectangularPair.cs" />
+    <Compile Include="PolygonTool\Vec2.cs" />
     <Compile Include="PolygonTool\Vec3.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

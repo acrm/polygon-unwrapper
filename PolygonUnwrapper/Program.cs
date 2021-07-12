@@ -109,7 +109,7 @@ namespace PolygonUnwrapper
                     .Limit(parameters.Start, parameters.Finish)
                     .Sort(asc: true)
                     .ReduceToTriangles()
-                    .RenamePolygons();
+                    .RenumberPolygons();
 
                 var infoBuilder = new StringBuilder();
 
@@ -161,7 +161,7 @@ namespace PolygonUnwrapper
                 void OutputDxfFiles()
                 {
                     Vector3 Vec3ToVector3(Vec3 v) => new Vector3(v.X, v.Y, v.Z);
-                    void CreateTextEnity(Polygon polygon, DxfDocument doc)
+                    void CreateTextEnity(Polygon3D polygon, DxfDocument doc)
                     {
                         var orderedVertices = new Vec3[3];
                         for (var i = 0; i < 3; i++)
@@ -205,26 +205,6 @@ namespace PolygonUnwrapper
                             textSize);
                         text.Rotation = beta / Math.PI * 180;
                         doc.AddEntity(text);
-
-                        //doc.AddEntity(new Polyline(new[]
-                        //{
-                        //    new Vector3(
-                        //        pos.X,
-                        //        pos.Y,
-                        //        0),
-                        //    new Vector3(
-                        //        pos.X + w * Math.Cos(beta) - 0 * Math.Sin(beta),
-                        //        pos.Y + w * Math.Sin(beta) + 0 * Math.Cos(beta),
-                        //        0),
-                        //    new Vector3(
-                        //        pos.X + w * Math.Cos(beta) - h * Math.Sin(beta),
-                        //        pos.Y + w * Math.Sin(beta) + h * Math.Cos(beta),
-                        //        0),
-                        //    new Vector3(
-                        //        pos.X + 0 * Math.Cos(beta) - h * Math.Sin(beta),
-                        //        pos.Y + 0 * Math.Sin(beta) + h * Math.Cos(beta),
-                        //        0),
-                        //}, true));
                     }
 
                     var dxf = new DxfDocument();

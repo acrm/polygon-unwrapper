@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace PolygonUnwrapper.PolygonTool
 {
-    public class Polygon
+    public class Polygon3D
     {
         public string Name;
         public int Page { get; set; }
@@ -20,7 +20,7 @@ namespace PolygonUnwrapper.PolygonTool
         public double Area { get; private set; }
         public double Perimeter { get; private set; }
 
-        private Polygon CalcMetrics()
+        private Polygon3D CalcMetrics()
         {
             Boundaries.CalcMetrics(_vertices);
 
@@ -63,15 +63,15 @@ namespace PolygonUnwrapper.PolygonTool
             return this;
         }
 
-        public IList<Polygon> GetSubTriangles()
+        public IList<Polygon3D> GetSubTriangles()
         {
-            if (_vertices.Count <= 3) return new List<Polygon>(1) { this };
+            if (_vertices.Count <= 3) return new List<Polygon3D>(1) { this };
 
-            var subTriangles = new List<Polygon>(_vertices.Count - 2);
+            var subTriangles = new List<Polygon3D>(_vertices.Count - 2);
             for (var i = 1; i < _vertices.Count - 1; i++)
             {
                 subTriangles.Add(
-                    new Polygon()
+                    new Polygon3D()
                     .AddVertices(new Vec3[]
                     {
                         _vertices[0],
@@ -82,7 +82,7 @@ namespace PolygonUnwrapper.PolygonTool
             return subTriangles;
         }
 
-        public Polygon AddVertice(Vec3 v)
+        public Polygon3D AddVertice(Vec3 v)
         {
             _vertices.Add(v);
             CalcMetrics();
@@ -90,7 +90,7 @@ namespace PolygonUnwrapper.PolygonTool
             return this;
         }
 
-        public Polygon AddVertices(IEnumerable<Vec3> vertices)
+        public Polygon3D AddVertices(IEnumerable<Vec3> vertices)
         {
             _vertices.AddRange(vertices);
             CalcMetrics();
@@ -98,7 +98,7 @@ namespace PolygonUnwrapper.PolygonTool
             return this;
         }
 
-        public Polygon Apply(Func<Vec3, Vec3> t)
+        public Polygon3D Apply(Func<Vec3, Vec3> t)
         {
             for (var i = 0; i < _vertices.Count; i++)
             {
@@ -110,17 +110,17 @@ namespace PolygonUnwrapper.PolygonTool
             return this;
         }
 
-        public Polygon Translate(Vec3 offset) => Apply(v => v.Add(offset));
-        public Polygon Rotate(Vec3 axis, double angle) => Apply(v => v.Rotate(axis, angle));
+        public Polygon3D Translate(Vec3 offset) => Apply(v => v.Add(offset));
+        public Polygon3D Rotate(Vec3 axis, double angle) => Apply(v => v.Rotate(axis, angle));
 
-        public Polygon Clone()
-            => new Polygon
+        public Polygon3D Clone()
+            => new Polygon3D
             {
                 Name = Name
             }
             .AddVertices(Vertices.Select(v => new Vec3(v.X, v.Y, v.Z)));
 
-        public Polygon Align()
+        public Polygon3D Align()
         {
             var targetNormal = Vec3.Front;
             var targetFirstVector = Vec3.Down;
